@@ -1,0 +1,44 @@
+name: v2.1
+weights:
+  location: 2
+  secondary: 3
+  sen: 2
+  special_needs: 2
+  one_to_one: 2
+  group_work: 1
+  ta: 2
+  length_experience: 2
+  longevity: 1
+  qualifications: 2
+  professional_profile: 1
+  created_date: 1
+max_points:
+  location: 20
+  secondary: 30
+  sen: 20
+  special_needs: 20
+  one_to_one: 20
+  group_work: 10
+  ta: 20
+  length_experience: 20
+  longevity: 10
+  qualifications: 20
+  professional_profile: 10
+  created_date: 10
+total_max: 210
+ai_scored_categories:
+  - secondary
+  - sen
+  - special_needs
+  - one_to_one
+  - group_work
+  - ta
+  - length_experience
+  - longevity
+  - qualifications
+  - professional_profile
+python_scored_categories:
+  - location
+  - created_date
+extract_prompt_path: prompts/extract_v1.md
+score_prompt_path: prompts/score_v1.md
