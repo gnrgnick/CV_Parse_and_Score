@@ -2,12 +2,27 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, BeforeValidator
 
 
 LocationBand = Literal["PASS", "REVIEW", "FAIL", "NO_DATA"]
+
+
+def _coerce_list(value: Any) -> Any:
+    """Accept either a list or a comma-separated string, returning a clean list.
+
+    Haiku occasionally flattens short list fields like `subject_specialisms` into a
+    comma-separated string ("English, Maths, Science"). This keeps the pipeline
+    resilient without rewriting the extraction prompt for every observed edge.
+    """
+    if isinstance(value, str):
+        return [s.strip() for s in value.split(",") if s.strip()]
+    return value
+
+
+StrList = Annotated[list[str], BeforeValidator(_coerce_list)]
 
 
 class Role(BaseModel):
@@ -34,21 +49,21 @@ class Qualification(BaseModel):
 class SENExperience(BaseModel):
     has_sen_experience: bool = False
     months_duration: int | None = None
-    settings: list[str] = []  # free-form: Mel's vocab not yet curated
+    settings: StrList = []
 
 
 class SpecialNeedsExperience(BaseModel):
-    conditions_mentioned: list[str] = []  # free-form: autism/ADHD/SEMH/dyslexia/EHCP/etc. as they appear
+    conditions_mentioned: StrList = []
 
 
 class OneToOneExperience(BaseModel):
     has_experience: bool = False
-    contexts: list[str] = []  # free-form: 1:1 flavours (keyworker, learning support, behavioural, etc.)
+    contexts: StrList = []
 
 
 class GroupWorkExperience(BaseModel):
     has_experience: bool = False
-    group_sizes_mentioned: list[str] = []
+    group_sizes_mentioned: StrList = []
 
 
 class SourceSignals(BaseModel):
@@ -81,7 +96,7 @@ class Candidate(BaseModel):
     special_needs_experience: SpecialNeedsExperience = SpecialNeedsExperience()
     one_to_one_experience: OneToOneExperience = OneToOneExperience()
     group_work_experience: GroupWorkExperience = GroupWorkExperience()
-    subject_specialisms: list[str] = []
+    subject_specialisms: StrList = []
 
     # free-text summaries
     biography: str | None = None
