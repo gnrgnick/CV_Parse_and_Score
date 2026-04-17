@@ -1,4 +1,5 @@
 services:
+  # Backend — FastAPI + LibreOffice in Docker, persistent SQLite.
   - type: web
     name: cv-engine
     runtime: docker
@@ -16,3 +17,19 @@ services:
       name: cv-engine-data
       mountPath: /data
       sizeGB: 1
+
+  # Admin UI — React + Vite static site. Built once per commit; VITE_API_URL
+  # is baked into the bundle so the UI points at the backend above.
+  - type: web
+    name: cv-admin
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: VITE_API_URL
+        value: https://cv-engine-qgx2.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
