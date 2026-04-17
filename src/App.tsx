@@ -14,18 +14,20 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Layout><Dashboard /></Layout>} />
+        {/* Live, wired to the cv-engine backend. Everything else is still mock-only. */}
+        <Route path="/" element={<Layout><NewContacts /></Layout>} />
         <Route path="/contacts" element={<Layout><NewContacts /></Layout>} />
+        <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
         <Route path="/errors" element={<Layout><Errors /></Layout>} />
         <Route path="/alerts" element={<Layout><Alerts /></Layout>} />
-        
+
         {/* Secondary navigation routes handled for demo purposes */}
-        <Route path="/feed" element={<Layout><Dashboard /></Layout>} />
+        <Route path="/feed" element={<Layout><NewContacts /></Layout>} />
         <Route path="/logs" element={<Layout><Errors /></Layout>} />
         <Route path="/queue" element={<Layout><NewContacts /></Layout>} />
         <Route path="/archive" element={<Layout><Dashboard /></Layout>} />
         <Route path="/settings" element={<Layout><Alerts /></Layout>} />
-        
+
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
