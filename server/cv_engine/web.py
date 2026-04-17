@@ -115,6 +115,102 @@ async def process(
     return result.model_dump(mode="json")
 
 
+@app.get("/runs")
+def list_runs(limit: int = 50) -> dict:
+    """Return recent runs with just enough fields for the New Contacts feed.
+
+    Joins each run to its most recent extraction + scoring attempt so the UI
+    can render candidate name, score total, location band, and the top two
+    category scores without a second round-trip.
+    """
+    if not 1 <= limit <= 200:
+        raise HTTPException(status_code=400, detail="limit must be in [1, 200]")
+
+    cfg = load_config()
+    conn = connect(cfg.db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+              r.id                           AS run_id,
+              r.cv_id                        AS cv_id,
+              r.status                       AS status,
+              r.started_at                   AS started_at,
+              r.completed_at                 AS completed_at,
+              r.previous_application_count   AS previous_application_count,
+              s.score_total                  AS score_total,
+              s.location_band                AS location_band,
+              s.score_secondary              AS score_secondary,
+              s.score_sen                    AS score_sen,
+              s.score_special_needs          AS score_special_needs,
+              s.score_one_to_one             AS score_one_to_one,
+              s.score_ta                     AS score_ta,
+              s.score_qualifications         AS score_qualifications,
+              s.score_length_experience      AS score_length_experience,
+              s.score_longevity              AS score_longevity,
+              s.score_professional_profile   AS score_professional_profile,
+              s.score_group_work             AS score_group_work,
+              e.extracted_json               AS extracted_json
+            FROM runs r
+            LEFT JOIN scoring_attempts s    ON s.id = r.latest_scoring_attempt_id
+            LEFT JOIN extraction_attempts e ON e.id = r.latest_extraction_attempt_id
+            ORDER BY r.started_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+        runs = [_run_row_to_summary(dict(r)) for r in rows]
+        return {"runs": runs, "count": len(runs)}
+    finally:
+        conn.close()
+
+
+_CATEGORY_LABELS = {
+    "score_secondary": ("Secondary", 30),
+    "score_sen": ("SEN", 20),
+    "score_special_needs": ("Special Needs", 20),
+    "score_one_to_one": ("1:1", 20),
+    "score_ta": ("TA", 20),
+    "score_qualifications": ("Qualifications", 20),
+    "score_length_experience": ("Length Exp", 20),
+    "score_longevity": ("Longevity", 10),
+    "score_professional_profile": ("Profile", 10),
+    "score_group_work": ("Group Work", 10),
+}
+
+
+def _run_row_to_summary(row: dict) -> dict:
+    """Collapse a joined DB row into the shape the admin UI expects."""
+    candidate_name: str | None = None
+    if row.get("extracted_json"):
+        try:
+            candidate_name = json.loads(row["extracted_json"]).get("name")
+        except json.JSONDecodeError:
+            candidate_name = None
+
+    # Top two categories (by score) surfaced for the list view.
+    top: list[dict] = []
+    for col, (label, max_pts) in _CATEGORY_LABELS.items():
+        val = row.get(col)
+        if val is not None:
+            top.append({"label": label, "score": val, "max": max_pts})
+    top.sort(key=lambda c: c["score"], reverse=True)
+
+    return {
+        "run_id": row["run_id"],
+        "cv_id": row["cv_id"],
+        "candidate_name": candidate_name,
+        "status": row["status"],
+        "started_at": row["started_at"],
+        "completed_at": row["completed_at"],
+        "score_total": row["score_total"],
+        "location_band": row.get("location_band"),
+        "is_reapplication": (row.get("previous_application_count") or 0) > 0,
+        "top_categories": top[:2],
+    }
+
+
 @app.get("/runs/{run_id}")
 def get_run(run_id: int) -> dict:
     """Fetch the full audit state for a single run."""
