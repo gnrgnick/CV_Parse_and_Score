@@ -34,21 +34,21 @@ class Qualification(BaseModel):
 class SENExperience(BaseModel):
     has_sen_experience: bool
     months_duration: int | None
-    settings: list[Literal["mainstream", "special_school", "pru", "hospital", "other"]]
+    settings: list[str]  # free-form: Mel's vocab not yet curated
 
 
 class SpecialNeedsExperience(BaseModel):
-    conditions_mentioned: list[Literal["autism", "adhd", "semh", "dyslexia", "ehcp", "pmld", "other"]]
+    conditions_mentioned: list[str]  # free-form: autism/ADHD/SEMH/dyslexia/EHCP/etc. as they appear
 
 
 class OneToOneExperience(BaseModel):
     has_experience: bool
-    contexts: list[Literal["keyworker", "learning_support", "behavioural_support", "other"]]
+    contexts: list[str]  # free-form: 1:1 flavours (keyworker, learning support, behavioural, etc.)
 
 
 class GroupWorkExperience(BaseModel):
     has_experience: bool
-    group_sizes_mentioned: list[Literal["small_group", "class", "intervention", "other"]]
+    group_sizes_mentioned: list[str]
 
 
 class SourceSignals(BaseModel):
