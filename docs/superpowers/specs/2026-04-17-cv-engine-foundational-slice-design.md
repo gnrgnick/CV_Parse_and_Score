@@ -32,6 +32,10 @@ This spec covers the **foundational slice** of the Python service — the core p
 - HighLevel write-back
 - Alerting (SMS/email routing)
 
+**Explicitly not building**
+
+- **Notes/tags table for human annotation.** Considered and rejected. HighLevel is the single source of truth for candidate notes. Adding a notes table to the engine would create a divergence surface between what Mel writes where, and would drift the admin UI away from its "glass cockpit" role into a workspace. If this assumption ever changes, it's one additive migration — no structural impact.
+
 Each follow-on gets its own brainstorm → spec → plan cycle. The data model in this spec is designed to support all of them without restructuring.
 
 ## 2. Pipeline shape
@@ -115,7 +119,7 @@ CREATE TABLE cvs (
   source                      TEXT NOT NULL,                  -- cv_library|reed|indeed|direct|backfill
   source_ref                  TEXT,                           -- email Message-ID, or HL contact id for backfill
   hl_contact_id               TEXT,                           -- set on match/write-back (future)
-  email_from                  TEXT,
+  email_from                  TEXT,                           -- envelope sender of the notifier email (e.g. no-reply@cv-library.co.uk); NOT the candidate
   email_subject               TEXT,
   email_body_text             TEXT,
   email_received_at           TEXT,
@@ -124,11 +128,13 @@ CREATE TABLE cvs (
   attachment_normalized_pdf   TEXT NOT NULL,                  -- path to the pdf we send to Haiku
   attachment_sha256           TEXT NOT NULL,
   hl_created_at               TEXT,                           -- feeds Created Date score
+  candidate_email             TEXT,                           -- the candidate's own email; populated from extracted_json.email AFTER extraction succeeds; NULL pre-extraction or if extraction failed
   ingested_at                 TEXT NOT NULL
 );
-CREATE INDEX cvs_source_ref ON cvs (source, source_ref);
-CREATE INDEX cvs_hl_contact ON cvs (hl_contact_id);
-CREATE INDEX cvs_sha256     ON cvs (attachment_sha256);
+CREATE INDEX cvs_source_ref      ON cvs (source, source_ref);
+CREATE INDEX cvs_hl_contact      ON cvs (hl_contact_id);
+CREATE INDEX cvs_sha256          ON cvs (attachment_sha256);
+CREATE INDEX cvs_candidate_email ON cvs (candidate_email);    -- dedup + future HL contact matching
 ```
 
 ### 3.3 `extraction_attempts`
@@ -217,7 +223,8 @@ CREATE INDEX runs_cv     ON runs (cv_id);
 - Justifications as JSON because they are read-together and never filtered on.
 - Append-only attempts tables give us debuggable history. Rubric re-runs insert new `scoring_attempts` rows; nothing is lost.
 - `one_active_rubric` partial unique index enforces exactly one active rubric at a time.
-- `previous_application_count` is populated synchronously at ingest by `SELECT count(*) FROM cvs WHERE email_from = ?` — cheap, visible in the admin UI, makes "show me reapplicants" a one-line query.
+- **Scores stored as typed `INTEGER` columns (not `REAL`, not inside a JSON blob).** This is a hard requirement for clean HighLevel import — Mel's HL custom score fields are numeric, and a CSV export or API push should be a direct column copy with no parsing, no rounding, and no ambiguity about what "4.7 / 20" would mean. Floats are banned.
+- `previous_application_count` is populated **after extraction succeeds**, not at ingest. The envelope sender on notifier emails (`email_from`) is the job board's no-reply address, so it can't be used for dedup. Instead: once Haiku returns `Candidate.email`, we write it to `cvs.candidate_email`, then run `SELECT count(*) FROM cvs WHERE candidate_email = ? AND id != ?` against the new row's own id to count prior submissions. Cheap (one indexed query), accurate, and reuses the same column for future HL contact matching.
 
 ## 4. Extraction stage
 
@@ -277,6 +284,10 @@ class OneToOneExperience(BaseModel):
 class GroupWorkExperience(BaseModel):
     has_experience: bool
     group_sizes_mentioned: list[Literal["small_group", "class", "intervention", "other"]]
+# NOTE: The specific Literal enum values above (SEN settings, named conditions, 1:1 contexts,
+# group-work sizes) are a first-pass inference, not operator-validated. Before finalising the
+# extraction prompt, walk these through Mel — the vocabulary she uses when matching candidates
+# to bookings is the source of truth, and it's what the rubric actually rewards.
 
 class SourceSignals(BaseModel):
     email_body_used: bool
@@ -351,7 +362,7 @@ def classify(candidate: Candidate) -> tuple[LocationBand, int]:
     return ("NO_DATA", 5)
 ```
 
-`FAIL` short-circuits the pipeline — no Sonnet call is made, `scoring_attempts.status = 'skipped_fail_location'`, only `score_location` is populated. Everything else is `NULL`.
+`FAIL` short-circuits the pipeline — no Sonnet call is made, `scoring_attempts.status = 'skipped_fail_location'`. A `scoring_attempts` row is still written so the admin UI has something to show. All score columns (including `score_total`) are written as `0` — not `NULL` — so that sorting and HL import treat FAIL candidates as a clean zero rather than an unknown. The `justifications_json` column stays `NULL` (nothing was judged).
 
 ## 6. Created Date score (Python, free)
 
@@ -524,6 +535,7 @@ Total comfortably under target. First real run through the golden CVs validates 
 - **Rubric stability under re-runs.** Non-determinism in Sonnet means re-scoring the same CV can yield slightly different justifications (and occasionally different integer scores). Set `temperature = 0` on scoring calls to minimize drift.
 - **Prompt-cache invalidation.** Any edit to the rubric prompt busts the cache for ~5 minutes. Not a problem in practice but worth being aware of when tuning.
 - **No HL match logic yet.** The engine writes `hl_contact_id = NULL` on ingest; match/write-back is a follow-on spec. The schema already has the column and index, so zero migrations needed later.
+- **HL custom fields do not map 1:1 to the 12-category rubric.** Inspecting the current HL field export (`High Level Fields.csv` at repo root): HL has `CV Score - Secondary Schools`, `CV Score - Location`, `CV Score - TA Score`, `CV Score - Special Needs Exp`, `CV Score - Qualifications`, `CV Score - Length Experience`, `CV Score - Longevity`, `CV Score - Professional Profile` (8 score fields). The rubric needs 12. **Missing on HL:** `SEN` (distinct from Special Needs), `1:1`, `Group Work`, `Created Date`, and `Total`. The write-back spec will need to either (a) add four new custom fields in HL (clean, surfaces everything in Mel's normal HL workflow) or (b) compact some scores into combined fields (avoids HL admin work but loses Mel's ability to filter on individual categories in HL). Noting here so the write-back spec opens with this decision, not a discovery.
 
 ## 15. What comes next
 
