@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: cv-engine
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /health
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CV_ENGINE_DB_PATH
+        value: /data/cv_engine.db
+    disk:
+      name: cv-engine-data
+      mountPath: /data
+      sizeGB: 1

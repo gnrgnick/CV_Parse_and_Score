@@ -134,8 +134,9 @@ def test_extract_candidate_schema_invalid_response_is_permanent(tmp_path: Path, 
     pdf = tmp_path / "cv.pdf"
     pdf.write_bytes(b"%PDF-1.4 fake")
 
-    # Missing required fields in tool input
-    bogus = {"name": "x"}  # everything else missing
+    # Wrong type for a Literal-constrained field — this MUST fail validation even with
+    # the permissive defaults we introduced for robustness against Haiku omissions.
+    bogus = {"roles": [{"title": "x", "sector": "not_a_real_sector"}]}
     mocker.patch(
         "cv_engine.extract.haiku._client_messages_create",
         return_value=_fake_message(bogus),
