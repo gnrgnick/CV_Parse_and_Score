@@ -68,6 +68,39 @@ def rubric_activate(name: str = typer.Argument(...)) -> None:
     typer.echo(f"OK: activated {name}")
 
 
+@rubric_app.command("seed")
+def rubric_seed() -> None:
+    """Insert the v2.1 rubric from rubrics/v2_1.yaml as the active version (idempotent)."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    from cv_engine.score.rubric import load_rubric
+    from cv_engine.store.dao import insert_rubric_version
+
+    server_root = _Path(__file__).resolve().parent.parent
+    rubric = load_rubric(server_root / "rubrics" / "v2_1.yaml")
+
+    db_path = _db_path_from_env()
+    conn = connect(db_path)
+
+    existing = conn.execute(
+        "SELECT id FROM rubric_versions WHERE name = ?", (rubric.name,)
+    ).fetchone()
+    if existing:
+        typer.echo(f"OK: {rubric.name} already present (id={existing['id']})")
+        return
+
+    insert_rubric_version(
+        conn,
+        name=rubric.name,
+        weights_json=_json.dumps(rubric.weights),
+        extract_prompt_path=rubric.extract_prompt_path,
+        score_prompt_path=rubric.score_prompt_path,
+        is_active=True,
+    )
+    typer.echo(f"OK: seeded {rubric.name}")
+
+
 @app.command("process")
 def process(
     cv: Path = typer.Option(..., "--cv", exists=True, readable=True),

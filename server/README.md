@@ -10,6 +10,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 cv-engine db migrate
+cv-engine rubric seed
 cv-engine process --email-body path/to/body.txt --cv path/to/cv.pdf
 ```
 
