@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Tactical Intelligence Palette */
+  --color-surface: #0c0e10;
+  --color-surface-container: #161a1e;
+  --color-surface-container-low: #111416;
+  --color-surface-container-high: #1b2025;
+  --color-surface-container-highest: #20262c;
+  --color-surface-container-lowest: #000000;
+  --color-surface-bright: #262d33;
+  --color-surface-dim: #0c0e10;
+  
+  --color-on-surface: #e0e6ed;
+  --color-on-surface-variant: #a6acb3;
+  
+  --color-primary: #c1c7cf;
+  --color-primary-dim: #b3b9c1;
+  --color-primary-container: #41474e;
+  --color-on-primary: #3a4147;
+  --color-on-primary-container: #cbd1d9;
+  
+  --color-secondary: #909fb4;
+  --color-secondary-container: #2e3c4e;
+  --color-on-secondary-container: #b1c0d6;
+  
+  --color-tertiary: #d7e6ff;
+  --color-tertiary-dim: #bacae4;
+  --color-tertiary-container: #c8d8f3;
+  --color-on-tertiary-container: #3c4c61;
+  
+  --color-outline: #70767d;
+  --color-outline-variant: #42494f;
+  
+  --color-error: #ee7d77;
+  --color-error-dim: #bb5551;
+  --color-error-container: #7f2927;
+  --color-on-error-container: #ff9993;
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-on-surface font-sans selection:bg-primary/30;
+  }
+}
+
+@layer components {
+  .tactical-panel {
+    @apply bg-surface-container border border-outline-variant/10 rounded;
+  }
+  
+  .glass-panel {
+    @apply bg-surface-container/80 backdrop-blur-md border border-outline-variant/20 rounded;
+  }
+
+  .mono-data {
+    @apply font-mono text-[11px] tracking-tight;
+  }
+
+  /* Custom scrollbar for tactical feel */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-container-lowest;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-outline-variant/50 rounded;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-outline/50;
+  }
+}
