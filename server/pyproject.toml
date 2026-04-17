@@ -1,0 +1,37 @@
+[project]
+name = "cv-engine"
+version = "0.1.0"
+description = "Loyal Blue CV Ingestion & Scoring Engine — foundational slice"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.5",
+    "anthropic>=0.40",
+    "typer>=0.9",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.12",
+]
+
+[project.scripts]
+cv-engine = "cv_engine.cli:app"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cv_engine*"]
+
+[tool.setuptools.package-data]
+cv_engine = ["store/*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers"
